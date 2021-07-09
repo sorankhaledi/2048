@@ -1,7 +1,6 @@
 <template>
   <div class="container">
     <div class="row">
-      <Wrapper :rows="rows" class="wrapper" />
       <transition tag="div" mode="out-in" name="fade">
         <div class="start-section" v-if="!gameIsRunning">
           <button @click="startGame" class="btn btn-outline-primary">Start</button>
@@ -9,6 +8,10 @@
         <div class="restart-section" v-else>
           <button @click="restartGame" class="btn btn-outline-primary">ReStart</button>
         </div>
+      </transition>
+      <Wrapper :rows="rows" class="wrapper" />
+      <transition name="slide-fade">
+        <p v-if="gameOver" class="alert alert-danger">Game Over</p>
       </transition>
     </div>
   </div>
@@ -31,6 +34,7 @@ export default {
       max: 15,
       gameIsRunning: false,
       canGoNext: true,
+      gameOver: false,
     }
   },
   components: {
@@ -62,8 +66,10 @@ export default {
       ],
       this.gameIsRunning = false;
       this.canGoNext = true;
+      this.gameOver = false;
     },
     startGame() {
+      this.gameOver = true;
       let firstIndex = this.randomIntFromRange(this.min, this.max);
       let secondIndex = this.randomIntFromRange(this.min, this.max);
       while( firstIndex === secondIndex ) {
@@ -84,12 +90,8 @@ export default {
       this.canGoNext = true;
       if(this.canGoNext) {
         window.addEventListener('keydown', event => {
-          let num = this.nextNum();
-          let index = this.randomIntFromRange(this.min, this.max);
-          while(this.rows[index] !== 0) {
-            index = this.randomIntFromRange(this.min, this.max)
-          }
           this.canGoNext = false;
+          let moved = false;
           let first, last, distance, end, payload = null;
           switch (event.key) {
             case "ArrowDown":
@@ -98,7 +100,7 @@ export default {
               distance = 4;
               end = 4;
               payload = 1;
-              this.makeMove(first, last, distance, end, payload);
+              moved = this.makeMove(first, last, distance, end, payload);
             break;
             case "ArrowUp":
               first = 12;
@@ -106,7 +108,7 @@ export default {
               distance = -4;
               end = 16;
               payload = 1;
-              this.makeMove(first, last, distance, end, payload);
+              moved = this.makeMove(first, last, distance, end, payload);
             break;
             case "ArrowLeft":
               first = 3;
@@ -114,7 +116,7 @@ export default {
               distance = -1;
               end = 16;
               payload = 4;
-              this.makeMove(first, last, distance, end, payload);
+              moved = this.makeMove(first, last, distance, end, payload);
             break;
             case "ArrowRight":
               first = 0;
@@ -122,19 +124,33 @@ export default {
               distance = 1;
               end = 13;
               payload = 4;
-              this.makeMove(first, last, distance, end, payload);
+              moved = this.makeMove(first, last, distance, end, payload);
             break;
             default:
               console.log("wrong key");
             break;
           }
+          if (moved) {
+            let num = this.nextNum();
+            let index = this.randomIntFromRange(this.min, this.max);
+            while(this.rows[index] !== 0) {
+              index = this.randomIntFromRange(this.min, this.max)
+            }
+            this.setValue(index, num);
+          }
           this.canGoNext = true;
+          let lost = this.checkLost();
+          if(lost) {
+            this.gameOver = true;
+            this.canGoNext = false;
+          }
         })
       }
     },
     makeMove(first, last, distance, end, payload) {
 
       let second, third = null;
+      let moved = false;
 
       for(first; first < end; first += payload, last += payload) {
         second = first + distance;
@@ -153,6 +169,7 @@ export default {
               if(this.rows[last] === 0) {
                 this.setValue(last, this.rows[third])
                 this.setValue(third, 0);
+                moved = true;
               }
               // last has value
               else {
@@ -160,6 +177,7 @@ export default {
                   let newValue = this.rows[third] + this.rows[last];
                   this.setValue(last, newValue);
                   this.setValue(third, 0);
+                  moved = true;
                 } else {
                   continue;
                 }
@@ -174,6 +192,7 @@ export default {
               if(this.rows[last] === 0) {
                 this.setValue(last, this.rows[second]);
                 this.setValue(second, 0);
+                moved = true;
               }
               // last has value
               else {
@@ -181,9 +200,11 @@ export default {
                   let newValue = this.rows[second] + this.rows[last];
                   this.setValue(last, newValue);
                   this.setValue(second, 0);
+                  moved = true;
                 } else {
                   this.setValue(third, this.rows[second]);
                   this.setValue(second, 0);
+                  moved = true;
                 }
               }
             }
@@ -196,10 +217,12 @@ export default {
                   this.setValue(last, newValue);
                   this.setValue(second, 0);
                   this.setValue(third, 0);
+                  moved = true;
                 } else {
                   this.setValue(last, this.rows[third]);
                   this.setValue(third, this.rows[second]);
                   this.setValue(second, 0);
+                  moved = true;
                 }
               }
               // last has value
@@ -209,11 +232,13 @@ export default {
                   this.setValue(last, newValue);
                   this.setValue(third, this.rows[second]);
                   this.setValue(second, 0);
+                  moved = true;
                 } else {
                   if(this.rows[second] === this.rows[third] && this.rows[third] !== 0) {
                     let newValue = this.rows[second] + this.rows[third];
                     this.setValue(third, newValue);
                     this.setValue(second, 0);
+                    moved = true;
                   }
                 }
               }
@@ -230,6 +255,7 @@ export default {
               if(this.rows[last] === 0) {
                 this.setValue(last, this.rows[first]);
                 this.setValue(first, 0);
+                moved = true;
               }
               // last has value
               else {
@@ -237,6 +263,11 @@ export default {
                   let newValue = this.rows[first] + this.rows[last];
                   this.setValue(last, newValue);
                   this.setValue(first, 0);
+                  moved = true;
+                } else {
+                  this.setValue(third, this.rows[first]);
+                  this.setValue(first, 0);
+                  moved = true;
                 }
               }
             }
@@ -249,10 +280,12 @@ export default {
                   this.setValue(last, newValue);
                   this.setValue(third, 0);
                   this.setValue(first, 0);
+                  moved = true;
                 } else {
                   this.setValue(last, this.rows[third]);
                   this.setValue(third, this.rows[first]);
                   this.setValue(first, 0);
+                  moved = true;
                 }
               }
               // last has value
@@ -262,14 +295,17 @@ export default {
                   this.setValue(last, newValue);
                   this.setValue(third, this.rows[first]);
                   this.setValue(first, 0);
+                  moved = true;
                 } else {
                   if(this.rows[third] === this.rows[first] && this.rows[first] !== 0) {
                     let newValue = this.rows[first] + this.rows[third];
                     this.setValue(third, newValue);
                     this.setValue(first, 0);
+                    moved = true;
                   } else {
                     this.setValue(second, this.rows[first]);
                     this.setValue(first, 0);
+                    moved = true;
                   }
                 }
               }
@@ -286,11 +322,13 @@ export default {
                   this.setValue(last, newValue);
                   this.setValue(second, 0);
                   this.setValue(first, 0);
+                  moved = true;
                 } else {
                   this.setValue(last, this.rows[second]);
                   this.setValue(third, this.rows[first]);
                   this.setValue(second, 0);
                   this.setValue(first, 0);
+                  moved = true;
                 }
               }
               // last has value
@@ -300,16 +338,19 @@ export default {
                   this.setValue(last, newValue);
                   this.setValue(second, 0);
                   this.setValue(first, 0);
+                  moved = true;
                 } else {
                   if(this.rows[second] === this.rows[first] && this.rows[first] !== 0) {
                     let newValue = this.rows[second] + this.rows[first];
                     this.setValue(third, newValue);
                     this.setValue(second, 0);
                     this.setValue(first, 0);
+                    moved = true;
                   } else {
                     this.setValue(third, this.rows[second]);
                     this.setValue(second, this.rows[first]);
                     this.setValue(first, 0);
+                    moved = true;
                   }
                 }
               }
@@ -324,6 +365,7 @@ export default {
                   this.setValue(third, this.rows[first]);
                   this.setValue(second, 0);
                   this.setValue(first, 0);
+                  moved = true;
                 } else {
                   if(this.rows[second] === this.rows[first] && this.rows[first] !== 0) {
                     let newValue = this.rows[second] + this.rows[first];
@@ -331,11 +373,13 @@ export default {
                     this.setValue(third, newValue);
                     this.setValue(second, 0);
                     this.setValue(first, 0);
+                    moved = true;
                   } else {
                     this.setValue(last, this.rows[third]);
                     this.setValue(third, this.rows[second]);
                     this.setValue(second, this.rows[first]);
                     this.setValue(first, 0);
+                    moved = true;
                   }
                 }
               }
@@ -349,10 +393,12 @@ export default {
                     this.setValue(third, newValue);
                     this.setValue(second, 0);
                     this.setValue(first, 0);
+                    moved = true;
                   } else {
                     this.setValue(third, this.rows[second]);
                     this.setValue(second, this.rows[first]);
                     this.setValue(first, 0);
+                    moved = true;
                   }
                 } else {
                   if(this.rows[third] === this.rows[second] && this.rows[second] !== 0) {
@@ -360,11 +406,13 @@ export default {
                     this.setValue(third, newValue);
                     this.setValue(second, this.rows[first]);
                     this.setValue(first, 0);
+                    moved = true;
                   } else {
                     if(this.rows[second] === this.rows[first] && this.rows[first] !== 0) {
                       let newValue = this.rows[second] + this.rows[first];
                       this.setValue(second, newValue);
                       this.setValue(first, 0);
+                    moved = true;
                     }
                   }
                 }
@@ -373,8 +421,40 @@ export default {
           }
         }
       }
+      return moved;
 
     },
+    checkLost() {
+      let filled = true;
+      this.rows.forEach(e => {
+        if(e === 0) {
+          filled = false;
+        }
+      })
+
+      if(!filled) {
+        return false;
+      }
+
+      let canMove = false;
+
+      for (let j = 0; j < 13; j += 4) {
+        for (let i = j; i < j + 3; i++) {
+          if(this.rows[i] === this.rows[i+1])
+          canMove = true;
+        }
+      }
+
+      for (let j = 0; j < 4; j++) {
+        for (let i = j; i < j + 9; i += 4) {
+          if (this.rows[i] === this.rows[i+4]) {
+            canMove = true;
+          }
+        }
+      }
+
+      return !canMove;
+    }
   },
 }
 </script>
@@ -398,6 +478,10 @@ export default {
   align-items: center;
 }
 
+.row {
+  min-height: 500px;
+}
+
 .start-section, .restart-section {
   width: 100%;
   min-height: 100px;
@@ -405,6 +489,22 @@ export default {
   justify-content: center;
   align-items: center;
 }
+
+.game-over {
+  width: 100%;
+  min-height: 100px;
+  padding: auto 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+p {
+  width: 100%;
+  text-align: center;
+  padding: 10px 0;
+}
+
 
 
 
@@ -415,6 +515,18 @@ export default {
   transition: opacity 0.15s;
 }
 .fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
+  opacity: 0;
+}
+
+
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.3s linear;
+}
+.slide-fade-enter, 
+.slide-fade-leave-to
+/* .slide-fade-leave-active below version 2.1.8 */ {
+  transform: translateY(20px);
   opacity: 0;
 }
 /* end animations */
@@ -529,4 +641,17 @@ fieldset:disabled a.btn {
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.5);
 }
 
+.alert {
+  position: relative;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+}
+
+.alert-danger {
+  color: #721c24;
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+}
 </style>
